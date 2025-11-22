@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15
+    restart: always
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: intellidocs
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7
+    restart: always
+    ports:
+      - "6379:6379"
+
+  backend:
+    build: 
+      context: ./app/server
+      dockerfile: Dockerfile
+    command: gunicorn -w 2 -b 0.0.0.0:5000 app:app
+    volumes:
+      - ./app/server:/app
+      - ./uploads:/uploads
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=production
+      - POSTGRES_HOST=db
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - db
+      - redis
+
+  worker:
+    build: 
+      context: ./app/server
+      dockerfile: Dockerfile
+    command: celery -A tasks.celery worker --loglevel=info
+    volumes:
+      - ./app/server:/app
+      - ./uploads:/uploads
+      - ./chroma_db:/app/chroma_db
+    environment:
+      - POSTGRES_HOST=db
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - backend
+
+  frontend:
+    build: 
+      context: ./frontend/app      
+      dockerfile: Dockerfile    
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:5000/api
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
