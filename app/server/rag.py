@@ -1,4 +1,5 @@
 from embedding_manager import semantic_search
+# Import the new function
 from llm import generate_answer_stream, generate_search_query 
 from web_search import web_search
 
